@@ -4,6 +4,7 @@
 import copy
 import pygame, sys
 from pygame.locals import *
+from pygame import gfxdraw
 
 
 PLAYERCOLOUR = "b"
@@ -21,6 +22,7 @@ class Game:
         self.FPSCLOCK = pygame.time.Clock()
         self.mousePos = [0, 0]
         self.selectedPiece = None
+        pygame.display.set_caption("Draughts")
 
         self.run()
 
@@ -37,6 +39,12 @@ class Game:
                         if self.board.makeMove(self.selectedPiece, self.getMouseBox(event.pos)):
                             self.changeTurn(None)  # Swaps the turn
                             self.selectedPiece = None
+                            self.board.checkForKings()
+                            winner = self.board.checkForWinner()
+                            if winner:
+                                self.win(winner)
+                                return
+
                     if self.board.validSelection(self.getMouseBox(event.pos)):
                         self.selectedPiece = self.getMouseBox(event.pos)
                     else:
@@ -62,19 +70,35 @@ class Game:
             elif PLAYERCOLOUR == "b":
                 PLAYERCOLOUR = "w"
 
+    def win(self, colour):  # Colour is either "w" or "b"
+        pygame.display.set_caption(colour + " wins")
+        while True:
+            for event in pygame.event.get():  # event handling loop
+                if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
+                    pygame.quit()
+                    sys.exit()
+                if event.type == KEYUP:
+                    return
+            self.board.draw(self.displaySurf, (0, 0), None)
+            pygame.display.update()
+            self.FPSCLOCK.tick(self.FPS)
+
+
+
+
 
 class Board:
 
     def __init__(self, board):
         if type(board) is not list:
-            self.board = [["", "b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m"],
-                     ["b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m", ""],
-                     ["", "b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m"],
+            self.board = [["", "", "", "", "", "", "", "", "", ""],
                      ["", "", "", "", "", "", "", "", "", ""],
+                     ["", "", "", "", "", "b:k", "", "", "", ""],
+                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
                      ["", "", "", "", "", "", "", "", "", ""],
-                     ["w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m", ""],
-                     ["", "w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m"],
-                     ["w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m", ""]]
+                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
+                     ["", "", "", "", "", "", "", "", "", ""],
+                     ["", "", "", "", "", "", "", "", "", ""]]
 
     def makeMove(self, selectedPiece, currentClickBox):  # Checks if the user has made a move and makes it, also returns whether a move has been made or not
         if self.board[selectedPiece[1]][selectedPiece[0]].split(":")[0] == PLAYERCOLOUR:
@@ -150,7 +174,9 @@ class Board:
     def checkForKings(self):
         for pieceidx in range(len(self.board[0])):
             if self.board[0][pieceidx].split(":")[0] == "w":
-                self.board
+                self.board[0][pieceidx] = "w:k"
+            if self.board[-1][pieceidx].split(":")[0] == "b":
+                self.board[-1][pieceidx] = "b:k"
 
 
     def move(self, piece, pos):
@@ -174,7 +200,7 @@ class Board:
             return True
         return False
 
-    def draw(self, surface, mousePos, selectedPiece):
+    def draw(self, surface, mousePos, selectedPiece):  # Selected piece can be none, mousePos is used if no piece is selected and will highlight the square
         sqSize = SCREENSIZE / 8
         for row in range(8):
             if row % 2 == 0:
@@ -194,9 +220,21 @@ class Board:
             for x in y:
                 if x != "":
                     if x.split(":")[0] == "b":
-                        pygame.draw.circle(surface, (0, 0, 0), ((int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2))), int(sqSize * 0.4))
+                        pygame.gfxdraw.aacircle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.4), (0, 0, 0))
+                        pygame.gfxdraw.filled_circle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.4), (0, 0, 0))
+
+                        if x.split(":")[1] == "k":
+                            pygame.gfxdraw.aacircle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.15), (255, 255, 255))
+                            pygame.gfxdraw.filled_circle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.15), (255, 255, 255))
+
                     elif x.split(":")[0] == "w":
-                        pygame.draw.circle(surface, (255, 255, 255), ((int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2))), int(sqSize * 0.4))
+                        pygame.gfxdraw.aacircle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.4), (255, 255, 255))
+                        pygame.gfxdraw.filled_circle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.4), (255, 255, 255))
+
+                        if x.split(":")[1] == "k":
+                            pygame.gfxdraw.aacircle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.15), (0, 0, 0))
+                            pygame.gfxdraw.filled_circle(surface, (int(xnum * sqSize) + int(sqSize / 2)), (int(ynum * sqSize) + int(sqSize / 2)), int(sqSize * 0.15), (0, 0, 0))
+
                 xnum += 1
             ynum += 1
 
