@@ -91,14 +91,14 @@ class Board:
 
     def __init__(self, board):
         if type(board) is not list:
-            self.board = [["", "", "", "", "", "", "", "", "", ""],
+            self.board = [["", "b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m"],
+                     ["b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m", ""],
+                     ["", "b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m"],
                      ["", "", "", "", "", "", "", "", "", ""],
-                     ["", "", "", "", "", "b:k", "", "", "", ""],
-                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
                      ["", "", "", "", "", "", "", "", "", ""],
-                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
-                     ["", "", "", "", "", "", "", "", "", ""],
-                     ["", "", "", "", "", "", "", "", "", ""]]
+                     ["w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m", ""],
+                     ["", "w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m"],
+                     ["w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m", ""]]
 
     def makeMove(self, selectedPiece, currentClickBox):  # Checks if the user has made a move and makes it, also returns whether a move has been made or not
         if self.board[selectedPiece[1]][selectedPiece[0]].split(":")[0] == PLAYERCOLOUR:
@@ -118,7 +118,6 @@ class Board:
     def getMoves(self, pos):
         moves = []  # Coordinates of the move x, y
         self.piece = self.board[pos[1]][pos[0]]
-        captureMoves = []  # Each move in here is the move position and a list of pieces that are captured
         if self.piece.split(":")[1] == "k":
             self.moveset = [[1, 1], [-1, -1], [1, -1], [-1, 1]]
         elif self.piece.split(":")[0] == "b":
@@ -135,7 +134,7 @@ class Board:
 
         capPos = (pos[0], pos[1])
         capList = []
-        self.captureMoves = []
+        self.captureMoves = [] # Each move in here is the move position and a list of pieces that are captured
         self.captureRecursion(capList, capPos)
         return [moves, self.captureMoves]
 
