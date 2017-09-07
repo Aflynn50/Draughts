@@ -35,17 +35,17 @@ class Game:
                 if event.type == MOUSEMOTION:
                     self.mousePos = event.pos
                 if event.type == MOUSEBUTTONUP:
-                    if self.selectedPiece:
-                        if self.board.makeMove(self.selectedPiece, self.getMouseBox(event.pos)):
+                    if self.selectedPiece:  # Checks if a piece is currently selected
+                        if self.board.makeMove(self.selectedPiece, self.getMouseBox(event.pos)):  # Checks if where the user has clicked is a valid move for that piece and if it is makes that move
                             self.changeTurn(None)  # Swaps the turn
-                            self.selectedPiece = None
+                            self.selectedPiece = None  # Deselects the piece
                             self.board.checkForKings()
                             winner = self.board.checkForWinner()
                             if winner:
                                 self.win(winner)
                                 return
 
-                    if self.board.validSelection(self.getMouseBox(event.pos)):
+                    if self.board.validSelection(self.getMouseBox(event.pos)):  # Checks if where they have clicked is a piece that can be selected, selects it if it is
                         self.selectedPiece = self.getMouseBox(event.pos)
                     else:
                         self.selectedPiece = None
@@ -91,32 +91,42 @@ class Board:
 
     def __init__(self, board):
         if type(board) is not list:
-            self.board = [["", "b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m"],
-                     ["b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m", ""],
-                     ["", "b:m", "", "b:m", "", "b:m", "", "b:m", "", "b:m"],
+            self.board = [["", "", "", "", "", "", "", "", "", ""],
                      ["", "", "", "", "", "", "", "", "", ""],
+                     ["", "", "", "", "", "b:k", "", "", "", ""],
+                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
                      ["", "", "", "", "", "", "", "", "", ""],
-                     ["w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m", ""],
-                     ["", "w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m"],
-                     ["w:m", "", "w:m", "", "w:m", "", "w:m", "", "w:m", ""]]
+                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
+                     ["", "", "", "", "", "", "", "", "", ""],
+                     ["", "", "", "", "", "", "", "", "", ""]]
 
     def makeMove(self, selectedPiece, currentClickBox):  # Checks if the user has made a move and makes it, also returns whether a move has been made or not
         if self.board[selectedPiece[1]][selectedPiece[0]].split(":")[0] == PLAYERCOLOUR:
-            moves, captureMoves = self.getMoves(selectedPiece)
+            moves = self.getMoves(selectedPiece)
             if moves:
-                for move in moves:
-                    if move == currentClickBox:
-                        self.move(selectedPiece, currentClickBox)
-                        return True
-            if captureMoves:
-                for move in captureMoves:
-                    if move[0] == currentClickBox:
-                        self.move(selectedPiece, currentClickBox)
+                for move in moves:  # Each move here will be a list of the position the piece goes through to make the move
+                    if move[-1] == currentClickBox:
+                        self.move(move)  # Passes the list of moves to the move function
                         return True
         return False
 
+    def move(self, moves):  # moves the piece through the list of moves and removes piece that have been captured
+        if len(moves) > 1:
+            start = moves[0]
+            end = moves[-1]
+            temp = str(self.board[start[1]][start[0]])
+            self.board[start[1]][start[0]] = ""
+            self.board[end[1]][end[0]] = temp
+
+            if abs(start[0] - end[0]) > 1 or abs(start[1] - end[1]) > 1:  # Checks if the move jumps over another piece
+                for i in range(len(moves) - 1):
+                    pieceToRemove = [int((moves[i][0] + moves[i + 1][0])/2), int((moves[i][1] + moves[i + 1][1])/2)]
+                    self.board[pieceToRemove[1]][pieceToRemove[0]] = ""
+
+
+
     def getMoves(self, pos):
-        moves = []  # Coordinates of the move x, y
+        self.moves = []  # A list which contains lists of coordinates that the piece visits to make a the move (including start location)
         self.piece = self.board[pos[1]][pos[0]]
         if self.piece.split(":")[1] == "k":
             self.moveset = [[1, 1], [-1, -1], [1, -1], [-1, 1]]
@@ -125,31 +135,31 @@ class Board:
         elif self.piece.split(":")[0] == "w":
             self.moveset = [[-1, -1], [1, -1]]
 
-        for i in self.moveset:
+        for i in self.moveset:  # Checks for a normal move
             try:
                 if self.board[pos[1] + i[1]][pos[0] + i[0]] == "":
-                    moves.append([pos[0] + i[0], pos[1] + i[1]])
+                    self.moves.append([[pos[0], pos[1]], [pos[0] + i[0], pos[1] + i[1]]])
             except IndexError:
                 pass
 
-        capPos = (pos[0], pos[1])
-        capList = []
-        self.captureMoves = [] # Each move in here is the move position and a list of pieces that are captured
-        self.captureRecursion(capList, capPos)
-        return [moves, self.captureMoves]
-
-    def captureRecursion(self, capList, capPos):
         if self.piece.split(":")[0] == "w":
             opposite = "b"
         else:
             opposite = "w"
+
+        self.moveRecersion([[pos[0], pos[1]]], opposite)
+
+        return self.moves
+
+    def moveRecersion(self, positions, opposite):  # Finds all the moves that involve capturing other pieces including ones that capture multiple pieces
+        currentPos = positions[-1]
         for i in self.moveset:
             try:
-                if self.board[capPos[1] + (i[1] * 2)][capPos[0] + (i[0] * 2)] == "" and self.board[capPos[1] + i[1]][capPos[0] + i[0]].split(":")[0] == opposite and [capPos[0] + (i[0]), capPos[1] + (i[1])] not in capList:
-                    #  Checks if move lands on blank square, checks it is capturing an enemy piece, checks the move it is making is not one that has already been checked
-                    capList.append([capPos[0] + (i[0]), capPos[1] + (i[1])])
-                    self.captureRecursion(capList, (capPos[0] + (i[0] * 2), capPos[1] + (i[1] * 2)))
-                    self.captureMoves.append([[capPos[0] + (i[0] * 2), capPos[1] + (i[1] * 2)], capList])
+                if self.board[currentPos[1] + (i[1] * 2)][currentPos[0] + (i[0] * 2)] == "" and self.board[currentPos[1] + i[1]][currentPos[0] + i[0]].split(":")[0] == opposite and [currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)] not in positions:
+                    #  Checks if move lands on blank square, checks it is capturing an enemy piece, checks the square the piece is moving to has not already been visited
+                    self.moves.append(positions + [[currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)]])  # adds the new chain of moves to the move list
+                    positions.append([currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)])
+                    self.moveRecersion(positions, opposite)
             except IndexError:
                 pass
         return
@@ -177,22 +187,6 @@ class Board:
             if self.board[-1][pieceidx].split(":")[0] == "b":
                 self.board[-1][pieceidx] = "b:k"
 
-
-    def move(self, piece, pos):
-        self.moves, self.captureMoves = self.getMoves(piece)
-        if self.moves:
-            if pos in self.moves:
-                temp = str(self.board[piece[1]][piece[0]])
-                self.board[piece[1]][piece[0]] = ""
-                self.board[pos[1]][pos[0]] = temp
-        if self.captureMoves:
-            for move in self.captureMoves:
-                if move[0] == pos:
-                    temp = str(self.board[piece[1]][piece[0]])
-                    self.board[piece[1]][piece[0]] = ""
-                    self.board[pos[1]][pos[0]] = temp
-                    for item in move[1]:
-                        self.board[item[1]][item[0]] = ""
 
     def validSelection(self, pos):
         if self.board[pos[1]][pos[0]].split(":")[0] == PLAYERCOLOUR:
@@ -237,35 +231,23 @@ class Board:
                 xnum += 1
             ynum += 1
 
-        moveOptions = []
 
         if selectedPiece:
-            moves, captureMoves = self.getMoves(selectedPiece)
-            if moves:
-                for move in moves:
-                    moveOptions.append(move)
-            if captureMoves:
-                for move in captureMoves:
-                    moveOptions.append(move[0])
+            moves = self.getMoves(selectedPiece)
+            print(moves)
 
-            for option in moveOptions:
+            for move in moves:
                 yellowBox = pygame.Surface((sqSize, sqSize), pygame.SRCALPHA)
                 yellowBox.fill((70, 70, 255, 192))
-                surface.blit(yellowBox, (option[0] * sqSize, option[1] * sqSize))
+                surface.blit(yellowBox, (move[-1][0] * sqSize, move[-1][1] * sqSize))
 
         elif self.board[mousePos[1]][mousePos[0]].split(":")[0] == PLAYERCOLOUR:
-            moves, captureMoves = self.getMoves(mousePos)
-            if moves:
-                for move in moves:
-                    moveOptions.append(move)
-            if captureMoves:
-                for move in captureMoves:
-                    moveOptions.append(move[0])
+            moves = self.getMoves(mousePos)
+            print(moves)
 
-            for option in moveOptions:
+            for move in moves:
                 yellowBox = pygame.Surface((sqSize, sqSize), pygame.SRCALPHA)
                 yellowBox.fill((100, 100, 255, 128))
-                surface.blit(yellowBox, (option[0] * sqSize, option[1] * sqSize))
-
+                surface.blit(yellowBox, (move[-1][0] * sqSize, move[-1][1] * sqSize))
 
 game = Game()
