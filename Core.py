@@ -2,19 +2,19 @@
 # Must capture is on
 # Coordinates are x,y unless being used to access place on board where they are y,x
 import copy
-import pygame, sys
+import pygame, sys, os, time
 from pygame.locals import *
 from pygame import gfxdraw
 
 
 PLAYERCOLOUR = "b"
 SCREENSIZE = 400
+pygame.init()
 if SCREENSIZE % 8 != 0:
     print("Invalid screen size")
 
 class Game:
     def __init__(self):
-        pygame.init()
         self.displaySurf = pygame.display.set_mode((SCREENSIZE, SCREENSIZE))
         self.displaySurf.fill((100, 100, 100))
         self.board = Board("")
@@ -22,9 +22,10 @@ class Game:
         self.FPSCLOCK = pygame.time.Clock()
         self.mousePos = [0, 0]
         self.selectedPiece = None
+        self.log_path = None
+        self.my_font = pygame.font.SysFont("liberationmono", 80)
         pygame.display.set_caption("Draughts")
-
-        self.run()
+        self.createRecordFile()
 
     def run(self):
         while True:
@@ -38,6 +39,7 @@ class Game:
                     if self.selectedPiece:  # Checks if a piece is currently selected
                         if self.board.makeMove(self.selectedPiece, self.getMouseBox(event.pos)):  # Checks if where the user has clicked is a valid move for that piece and if it is makes that move
                             self.changeTurn(None)  # Swaps the turn
+                            self.updateRecord(self.board.board)
                             self.selectedPiece = None  # Deselects the piece
                             self.board.checkForKings()
                             winner = self.board.checkForWinner()
@@ -54,6 +56,25 @@ class Game:
             self.board.draw(self.displaySurf, mouseBoxPos, self.selectedPiece)
             pygame.display.update()
             self.FPSCLOCK.tick(self.FPS)
+
+    def replay(self, log):
+        self.log_path = os.path.join("Games/log" + str(log) + ".txt")
+        line = 1
+        file = self.readRecord()
+        while True:
+            for event in pygame.event.get():  # event handling loop
+                if event.type == QUIT or (event.type == KEYUP and event.key == K_ESCAPE):
+                    pygame.quit()
+                    sys.exit()
+                if event.type == MOUSEBUTTONUP:
+                    line += 1
+                    print(file[line + 1])
+                    self.board.board = list(file[line + 1])
+                    print(self.board.board)
+            self.board.draw(self.displaySurf, (0, 0), None)
+            pygame.display.update()
+            self.FPSCLOCK.tick(self.FPS)
+
 
     def getMouseBox(self, mousePos):
         return [int(mousePos[0]/(SCREENSIZE / 8)), int(mousePos[1]/(SCREENSIZE / 8))]
@@ -80,25 +101,63 @@ class Game:
                 if event.type == KEYUP:
                     return
             self.board.draw(self.displaySurf, (0, 0), None)
+            if colour == "w":
+                self.displaySurf.blit(self.my_font.render("white", 1, (0, 0, 0)), (80, 100))
+                self.displaySurf.blit(self.my_font.render("wins", 1, (0, 0, 0)), (105, 200))
+            else:
+                self.displaySurf.blit(self.my_font.render("black", 1, (255, 255, 255)), (80, 100))
+                self.displaySurf.blit(self.my_font.render("wins", 1, (255, 255, 255)), (105, 200))
             pygame.display.update()
             self.FPSCLOCK.tick(self.FPS)
 
+    def createRecordFile(self):
 
+        num = 1
+        while os.path.isfile(os.path.join("Games/log" + str(num) + ".txt")):
+            num += 1
+        self.log_path = os.path.join("Games/log" + str(num) + ".txt")
+        with open(self.log_path, 'w') as log:
+            log.write(time.asctime(time.localtime(time.time())) + "\n#\n")
+            log.close()
 
+    def updateRecord(self, board):
+        with open(self.log_path, 'a') as log:
+            for line in board:
+                log.write(str(line) + "\n")
+            log.write("#\n")
+            log.close()
+
+    def readRecord(self):
+        file = []
+        with open(self.log_path, 'r') as log:
+            temp = []
+            for line in log:
+                if line != "" and line != "\n" and list != []:
+                    if line.strip("\n") == "#":
+                        file.append(temp)
+                        temp = []
+                    else:
+                        line_as_list = line.strip("\n").replace("[", "").replace("]", "").replace(" ", "")
+                        line_as_list = line_as_list.split(",")
+                        for i in range(len(line_as_list)):
+                            line_as_list[i] = line_as_list[i].strip("'")
+                        temp.append(line_as_list)
+            log.close()
+        return file
 
 
 class Board:
 
     def __init__(self, board):
         if type(board) is not list:
-            self.board = [["", "", "", "", "", "", "", "", "", ""],
-                     ["", "", "", "", "", "", "", "", "", ""],
-                     ["", "", "", "", "", "b:k", "", "", "", ""],
-                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
-                     ["", "", "", "", "", "", "", "", "", ""],
-                     ["", "", "", "", "w:m", "", "w:m", "", "", ""],
-                     ["", "", "", "", "", "", "", "", "", ""],
-                     ["", "", "", "", "", "", "", "", "", ""]]
+            self.board = [["", "b:m", "", "b:m", "", "b:m", "", "b:m"],
+                     ["b:m", "", "b:m", "", "b:m", "", "b:m", ""],
+                     ["", "b:m", "", "b:m", "", "b:m", "", "b:m"],
+                     ["", "", "", "", "", "", "", ""],
+                     ["", "", "", "", "", "", "", ""],
+                     ["w:m", "", "w:m", "", "w:m", "", "w:m", ""],
+                     ["", "w:m", "", "w:m", "", "w:m", "", "w:m"],
+                     ["w:m", "", "w:m", "", "w:m", "", "w:m", ""]]
 
     def makeMove(self, selectedPiece, currentClickBox):  # Checks if the user has made a move and makes it, also returns whether a move has been made or not
         if self.board[selectedPiece[1]][selectedPiece[0]].split(":")[0] == PLAYERCOLOUR:
@@ -122,8 +181,6 @@ class Board:
                 for i in range(len(moves) - 1):
                     pieceToRemove = [int((moves[i][0] + moves[i + 1][0])/2), int((moves[i][1] + moves[i + 1][1])/2)]
                     self.board[pieceToRemove[1]][pieceToRemove[0]] = ""
-
-
 
     def getMoves(self, pos):
         self.moves = []  # A list which contains lists of coordinates that the piece visits to make a the move (including start location)
@@ -157,9 +214,10 @@ class Board:
             try:
                 if self.board[currentPos[1] + (i[1] * 2)][currentPos[0] + (i[0] * 2)] == "" and self.board[currentPos[1] + i[1]][currentPos[0] + i[0]].split(":")[0] == opposite and [currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)] not in positions:
                     #  Checks if move lands on blank square, checks it is capturing an enemy piece, checks the square the piece is moving to has not already been visited
-                    self.moves.append(positions + [[currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)]])  # adds the new chain of moves to the move list
-                    positions.append([currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)])
-                    self.moveRecersion(positions, opposite)
+                    if currentPos[0] + (i[0] * 2) >= 0 and currentPos[1] + (i[1] * 2) >= 0:
+                        self.moves.append(positions + [[currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)]])  # adds the new chain of moves to the move list
+                        positions.append([currentPos[0] + (i[0] * 2), currentPos[1] + (i[1] * 2)])
+                        self.moveRecersion(positions, opposite)
             except IndexError:
                 pass
         return
@@ -173,6 +231,10 @@ class Board:
                     whites += 1
                 elif piece.split(":")[0] == "b":
                     blacks += 1
+
+        print(whites)
+        print(blacks)
+        print(self.board)
         if whites == 0:
             return "b"
         elif blacks == 0:
@@ -195,6 +257,7 @@ class Board:
 
     def draw(self, surface, mousePos, selectedPiece):  # Selected piece can be none, mousePos is used if no piece is selected and will highlight the square
         sqSize = SCREENSIZE / 8
+        surface.fill((100, 100, 100))
         for row in range(8):
             if row % 2 == 0:
                 pygame.draw.rect(surface, (200, 200, 200), (sqSize * 1, (row * sqSize), sqSize, sqSize))
@@ -234,7 +297,6 @@ class Board:
 
         if selectedPiece:
             moves = self.getMoves(selectedPiece)
-            print(moves)
 
             for move in moves:
                 yellowBox = pygame.Surface((sqSize, sqSize), pygame.SRCALPHA)
@@ -243,11 +305,10 @@ class Board:
 
         elif self.board[mousePos[1]][mousePos[0]].split(":")[0] == PLAYERCOLOUR:
             moves = self.getMoves(mousePos)
-            print(moves)
 
             for move in moves:
                 yellowBox = pygame.Surface((sqSize, sqSize), pygame.SRCALPHA)
                 yellowBox.fill((100, 100, 255, 128))
                 surface.blit(yellowBox, (move[-1][0] * sqSize, move[-1][1] * sqSize))
 
-game = Game()
+#game = Game()
